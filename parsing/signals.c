@@ -1,42 +1,52 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   signals.c                                          :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: rafael-m <rafael-m@student.42madrid.com>   +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2026/01/13 10:09:47 by rafael-m          #+#    #+#             */
+/*   Updated: 2026/01/13 11:16:13 by rafael-m         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
 #include "../minishell.h"
 
-void    ft_sig_int_parent(int signal)
+void	sig_int_parent(const int signal)
 {
-	char nl;
+	char	nl;
 
 	nl = '\n';
-    g_sig_rec = 1;
+	g_signal = 1;
 	if (signal == SIGINT)
 	{
-        write(1, "^C", 2);
-        ioctl(STDIN_FILENO, TIOCSTI, &nl);
-    }
+		write(1, "^C", 2);
+		ioctl(STDIN_FILENO, TIOCSTI, &nl);
+	}
 }
 
-
-void    ft_set_sig(int option)
+void	set_sig(int option)
 {
-    struct sigaction        sa;
+	struct sigaction	sa;
 
-    ft_memset(&sa, 0, sizeof(sa));
-    if (option == PARENT)
-    {
-        sa.sa_handler = ft_sig_int_parent;
-        sigaction(SIGINT, &sa, NULL);
+	ft_memset(&sa, 0, sizeof(sa));
+	if (option == PARENT)
+	{
+		sa.sa_handler = sig_int_parent;
+		sigaction(SIGINT, &sa, nullptr);
 		sa.sa_handler = SIG_IGN;
-        sigaction(SIGQUIT, &sa, NULL);
-    }
-    if (option == CHILD)
-    {
-        sa.sa_handler = SIG_DFL;
-        sigaction(SIGINT, &sa, NULL);
-        sigaction(SIGQUIT, &sa, NULL);
+		sigaction(SIGQUIT, &sa, nullptr);
 	}
-    if (option == IGNORE)
-    {
-        sa.sa_handler = SIG_IGN;
-        sigaction(SIGINT, &sa, NULL);
-        sigaction(SIGQUIT, &sa, NULL);
-    }
-	return ;
+	if (option == CHILD)
+	{
+		sa.sa_handler = SIG_DFL;
+		sigaction(SIGINT, &sa, nullptr);
+		sigaction(SIGQUIT, &sa, nullptr);
+	}
+	if (option == IGNORE)
+	{
+		sa.sa_handler = SIG_IGN;
+		sigaction(SIGINT, &sa, nullptr);
+		sigaction(SIGQUIT, &sa, nullptr);
+	}
 }

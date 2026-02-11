@@ -6,35 +6,16 @@
 /*   By: rms35 <rms35@student.42.fr>                +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/08/04 12:18:24 by rafael-m          #+#    #+#             */
-/*   Updated: 2025/09/20 18:41:21 by rms35            ###   ########.fr       */
+/*   Updated: 2026/01/18 12:00:00 by gemini           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "../minishell.h"
 
-char	*ft_trim_delim(char *token, int *option)
+static size_t	var_len(const char *var)
 {
-	char	*delim;
-	int		i;
-
-	if (!token)
-		return (NULL);
-	i = 0;
-	if (ft_strchr(QUOTES, token[i]) && (i == 0 || (i > 0 && token[i - 1] != '\\')))
-	{
-		if (token[i] == '\"')
-			*option = 1;
-		delim = ft_escape_quotes(token + i);
-	}
-	else
-		delim = ft_strdup(token + i);
-	return (delim);
-}
-
-int	ft_var_len(char	*var)
-{
-	int	i;
-	int	len;
+	size_t	i;
+	size_t	len;
 
 	if (!var)
 		return (0);
@@ -49,110 +30,86 @@ int	ft_var_len(char	*var)
 	return (i);
 }
 
-char	*ft_expand_exit_status(int status, char *line, int i)
+static char	*expand_var(char *token,
+		const size_t start, const size_t end, t_shenv **env)
 {
-	char *before;
-	char *after;
-	char *status_str;
-	char *tmp;
-	char *new_line;
+	char		*s;
+	char		*t;
+	const char	*var;
 
-	before = ft_strndup(line, i);
-	after = ft_strdup(line + i + 2);
-	status_str = ft_itoa(status);
-	tmp = ft_strjoin(before, status_str);
-	new_line = ft_strjoin(tmp, after);
-	free(before);
-	free(after);
-	free(status_str);
-	free(tmp);
-	return (new_line);
-}
-
-char	*ft_expand_var(char	*line, int start, int end)
-{
-	char	*s;
-	char	*t;
-	char	*var;
-
-	if (!line)
-		return (NULL);
-	if (end > ft_strlen(line))
-		return (ft_strndup(line, end));
-	s = ft_strndup(line + start, end);
+	if (!token)
+		return (nullptr);
+	if (end > ft_strlen(token))
+		return (ft_strndup(token, end));
+	s = ft_strndup(token + start, end);
 	t = ft_strtrim(s, NO_VAL_VAR);
 	if (!s || !t)
-		return (free(s), free(t), NULL);
+		return (free(s), free(t), nullptr);
 	free(s);
-	var = getenv(t);
+	var = ft_getenv(*env, t);
 	free(t);
-	s = ft_strndup(line, start);
+	s = ft_strndup(token, start);
 	t = ft_strjoin(s, var);
 	free(s);
-	s = NULL;
-	s = ft_strjoin(t, line + start + end);
+	s = ft_strjoin(t, token + start + end);
 	free(t);
-	t = NULL;
 	return (s);
 }
 
-char	*ft_expand_line(char *line, t_cli *cli)
+static char	*expand_token(char *token, const t_cli *cli, size_t i)
 {
-	int		i;
+	char	*t;
+
+	if (token[i + 1] == '?')
+		t = expand_exit_status(cli->status, token, i);
+	else
+		t = expand_var(token, i, var_len(token + i), cli->env);
+	return (t);
+}
+
+char	*expand_line(char *token, const t_cli *cli)
+{
+	size_t	i;
+	int		q;
 	char	*t;
 
 	i = 0;
-	while (line && i < ft_strlen(line))
+	q = 0;
+	while (token && i < ft_strlen(token))
 	{
-		if (line[i] == '\'' && i > 0 && line[i - 1] != '\\')
-			i += (ft_quoted_len(line + i, '\'') + 1);
-		if (i < ft_strlen(line) && line[i] == '<' && line[i + 1] == '<')
+		if (token[i] == '\'' && q != 2)
+			q = (q == 0);
+		else if (token[i] == '\"' && q != 1)
+			q = (q == 0) * 2;
+		else if (token[i] == '$' && q != 1 && token[i + 1]
+			&& !ft_strchr(NO_VAL_VAR, token[i + 1]))
 		{
-			if (ft_heredoc_len(line + i) <= 0)
-				return (free(line), line = NULL, NULL);
-			i += (ft_heredoc_len(line + i) - 1);
-		}
-		if (i < ft_strlen(line) && line[i] == '$' && line[i + 1] && !ft_strchr(NO_VAL_VAR,
-				line[i + 1]))
-		{
-			if (line[i + 1] == '?')
-				t = ft_expand_exit_status(cli->last_status, line, i);
-			else
-				t = ft_expand_var(line, i, ft_var_len(line + i));
-			if (line != t)
-				free(line);
-			line = t;
+			t = expand_token(token, cli, i);
+			free(token);
+			token = t;
+			if (!token)
+				return (NULL);
+			continue ;
 		}
 		i++;
 	}
-	t = ft_strtrim(line, " ");
-	return (free(line), line = NULL, t);
+	return (t = ft_strtrim(token, " "), free(token), t);
 }
 
-char	**ft_expand_tokens(char **tokens, int *len, t_cli *cli)
+char	**expand_tokens(char **tokens, size_t *len, const t_cli *cli, size_t i)
 {
 	char	*t;
-	int		i;
 	int		wc_len;
 
 	if (!tokens)
-		return (NULL);
-	i = 0;
+		return (nullptr);
+	wc_len = 0;
 	while (i < *len)
 	{
-		wc_len = 0;
-		if (ft_strchr(tokens[i], '*') && !ft_strchr(QUOTES, tokens[i][0]))
-		{
-			tokens = ft_expand_wildcard(tokens, i, &wc_len);
-			i = i + wc_len;
-			*len = *len + wc_len - 1;
+		if (expand_t(&tokens, len, &i, wc_len))
 			continue ;
-		}
-		t = ft_expand_line(tokens[i], cli);
-		if (t && t[0] == '<' && t[1] == '<')
-			tokens[i] = ft_strdup(t);
-		else
-			tokens[i] = ft_escape_quotes(t);
+		t = expand_line(tokens[i], cli);
+		tokens[i] = escape_quotes(t);
 		free(t);
 		i++;
 	}

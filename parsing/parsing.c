@@ -3,27 +3,34 @@
 /*                                                        :::      ::::::::   */
 /*   parsing.c                                          :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: rms35 <rms35@student.42.fr>                +#+  +:+       +#+        */
+/*   By: rafael <rafael@student.42.fr>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/08/04 12:19:42 by rafael-m          #+#    #+#             */
-/*   Updated: 2025/09/20 19:21:34 by rms35            ###   ########.fr       */
+/*   Updated: 2026/01/04 18:46:40 by rafael           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "../minishell.h"
 
-int	ft_append(char *token, t_cli *cli)
+// TODO: properly expand filenames
+
+static int	append_file(char *token, t_cli *cli)
 {
 	int	i;
 
 	if (!token)
-		return (ft_perror(">>", SYN_ERR), 0);
+		return (perror_token(">>", SYN_ERR), 0);
 	if (!cli)
 		return (0);
 	i = 0;
-	free(cli->outfile);
+	if (cli->outfile)
+	{
+		if (!create_file(cli))
+			return (0);
+		free(cli->outfile);
+	}
 	cli->r_mode = APPEND;
-	if (ft_strchr(QUOTES, token[i]) && (i == 0 || (i > 0 && token[i - 1] != '\\')))
+	if (ft_strchr(QUOTES, token[i]))
 		cli->outfile = ft_strndup(token + i + 1, ft_strlen(token) - i - 2);
 	else
 		cli->outfile = ft_strdup(token + i);
@@ -32,19 +39,23 @@ int	ft_append(char *token, t_cli *cli)
 	return (1);
 }
 
-int	ft_outfile(char *token, t_cli *cli)
+static int	outfile(char *token, t_cli *cli)
 {
 	int	i;
 
 	if (!token)
-		return (ft_perror(">", SYN_ERR), 0);
+		return (perror_token(">", SYN_ERR), 0);
 	if (!cli)
 		return (0);
 	i = 0;
-	free(cli->outfile);
+	if (cli->outfile)
+	{
+		if (create_file(cli))
+			return (0);
+	}
 	free(cli->outfile);
 	cli->r_mode = 0;
-	if (ft_strchr(QUOTES, token[i]) && (i == 0 || (i > 0 && token[i - 1] != '\\')))
+	if (ft_strchr(QUOTES, token[i]))
 		cli->outfile = ft_strndup(token + i + 1, ft_strlen(token) - i - 2);
 	else
 		cli->outfile = ft_strdup(token + i);
@@ -53,7 +64,7 @@ int	ft_outfile(char *token, t_cli *cli)
 	return (1);
 }
 
-int	ft_infile(char *token, t_cli *cli)
+static int	infile(char *token, t_cli *cli)
 {
 	int	i;
 
@@ -61,11 +72,16 @@ int	ft_infile(char *token, t_cli *cli)
 		return (0);
 	i = 0;
 	if (!token)
-		return (ft_perror("<", SYN_ERR), 0);
-	free(cli->infile);
+		return (perror_token("<", SYN_ERR), 0);
+	if (cli->infile)
+	{
+		if (access(cli->infile, R_OK) == -1)
+			return (perror(cli->infile), 0);
+		free(cli->infile);
+	}
 	free(cli->heredoc);
-	cli->heredoc = NULL;
-	if (ft_strchr(QUOTES, token[i]) && (i == 0 || (i > 0 && token[i - 1] != '\\')))
+	cli->heredoc = nullptr;
+	if (ft_strchr(QUOTES, token[i]))
 		cli->infile = ft_strndup(token + i + 1, ft_strlen(token) - i - 2);
 	else
 		cli->infile = ft_strdup(token + i);
@@ -74,63 +90,47 @@ int	ft_infile(char *token, t_cli *cli)
 	return (1);
 }
 
-int	ft_parse_token(char **token, int i, t_cli *cli, int *group)
+static size_t	parse_input2(char **token, size_t i, t_cli *cli)
 {
 	if (token[i] && token[i][0] == '<')
-		ft_infile(token[++i], cli);
+		infile(token[++i], cli);
 	else if (token[i] && token[i][0] == '>')
-		ft_outfile(token[++i], cli);
-	else if (token[i] && token[i][0] == '(')
-		*group++;
-	else if (token[i] && token[i][0] == ')')
-	{
-		*group--;
-		cli->op = 0;
-	}
+		outfile(token[++i], cli);
 	else if (token[i] && !cli->cmd)
 	{
-		ft_cmd(token[i], cli);
-		ft_args(token[i], cli, ft_doubleptr_len((void **)cli->args));
-		cli->group = *group;
+		set_cmd(token[i], cli);
+		add_args(token[i], cli, ft_doubleptr_len((void **)cli->args));
 	}
 	else
-		ft_args(token[i], cli, ft_doubleptr_len((void **)cli->args));
+		add_args(token[i], cli, ft_doubleptr_len((void **)cli->args));
 	return (i);
 }
 
-int	ft_parse(char **token, t_cli *cli)
+int	parse_input(char **tokens, t_cli *cli, size_t i)
 {
-	int		i;
-	int		len;
+	size_t	len;
 	int		status;
-	int		group;
 
-	if (!token || !cli)
-		return (2);
-	i = 0;
-	group = 1;
 	len = cli->n_tokens;
 	cli->n_tokens = 1;
 	while (i < len)
 	{
-		// printf("parsing token[%d] = %s\n", i, token[i]);
-		if (token[i] && !ft_strncmp(token[i], ">>", 2))
-			ft_append(token[++i], cli);
-		else if (token[i] && !ft_strncmp(token[i], "<<", 2))
+		if (tokens[i] && !ft_strncmp(tokens[i], ">>", 2))
+			append_file(tokens[++i], cli);
+		else if (tokens[i] && !ft_strncmp(tokens[i], "<<", 2))
 		{
-			if (ft_heredoc(token[++i], cli) == 130)
-				return (130);
+			status = get_heredoc(tokens[++i], cli);
+			if (status)
+				return (free_tokens(tokens, len), status);
 		}
-		else if (token[i] && ft_strchr(OP_STR2, token[i][0]))
+		else if (tokens[i] && tokens[i][0] && ft_strchr(OP_STR, tokens[i][0]))
 		{
-			cli->next = ft_parse_op(token[i], cli);
-			if (!cli->next)
-				return (2);
-			cli = cli->next;
+			if (!parse_op(tokens[i], &cli))
+				return (free_tokens(tokens, len), 2);
 		}
 		else
-			i = ft_parse_token(token, i, cli, &group);
+			i = parse_input2(tokens, i, cli);
 		i++;
 	}
-	return (ft_free_tokens(token, len), 0);
+	return (free_tokens(tokens, len), 0);
 }

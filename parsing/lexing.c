@@ -12,127 +12,110 @@
 
 #include "../minishell.h"
 
-int	ft_quoted_len(char *line, char quote)
-{
-	int	i;
-
-	if (!line)
-		return (0);
-	i = 1;
-	while (line[i])
-	{
-		if (line[i] == quote)
-		{
-			if(quote == '\'')
-				return (i + 1);
-			else if (quote == '\"')
-			{
-				if (line[i - 1] != '\\')
-					return (i + 1);
-			}
-		}
-		i++;
-	}
-	return (-1);
-}
-
-char	*ft_escaped_line(char *line, int start, int end)
+static char	*ft_escape(char *line, const size_t start, const size_t end)
 {
 	char	*escaped;
 	char	*t;
 	char	*s;
 
-	if (!line || start < 0 || end < start)
-		return (NULL);
+	if (!line || end < start)
+		return (nullptr);
 	if (end == 0)
 		return (ft_strdup(line));
 	escaped = ft_esc_str(line + start + 1, ESC_CHARS1, end - start - 2);
 	t = ft_strndup(line, start);
 	if (!escaped)
-		return (NULL);
+		return (nullptr);
 	s = ft_strjoin(t, escaped);
 	if (!s)
-		return (NULL);
+		return (nullptr);
 	free(escaped);
 	free(t);
 	t = ft_strjoin(s, line + end);
 	free(s);
-	return (s = NULL, escaped = NULL, t);
+	return (t);
 }
 
-char *ft_esc_line(char *line, int i, int len)
+static char	*esc_line(char *line, const size_t i, const size_t len)
 {
-	char	*esc_line;
+	char	*esc;
 	char	*t;
 
 	if (ft_strchr(QUOTES, line[i]) && line[i] == line[i + 1])
 	{
 		t = ft_strndup(line, i);
 		if (i > 0 && !t)
-			return (perror("malloc1 : "), NULL);
+			return (perror("malloc : "), nullptr);
 		if (!line[i + 2])
 			return (t);
-		esc_line = ft_strjoin(t, line + i + 2);
-		if (esc_line != t)
-		{
+		esc = ft_strjoin(t, line + i + 2);
+		if (esc != t)
 			free(t);
-			t = NULL;
-		}
-		if (!esc_line)
-			return (perror("malloc : "), NULL);
-		return (esc_line);
+		if (!esc)
+			return (perror("malloc : "), nullptr);
+		return (esc);
 	}
-	esc_line = ft_escaped_line(line, i, len);
-	return (esc_line);
+	esc = ft_escape(line, i, len);
+	return (esc);
 }
 
-char	*ft_escape_quotes(char *line)
+static char	*escape_q(size_t *i, char **str)
 {
-	int		i;
-	int		len;
-	char	*esc_line;
+	size_t	len;
+	char	*esc;
+	char	*s;
+
+	s = *str;
+	len = quoted_len(s + *i);
+	if (len == 0)
+		return (free(s), nullptr);
+	esc = esc_line(s, *i, *i + len);
+	if (!esc)
+		return (free(s), nullptr);
+	*i += (len - 2);
+	free(*str);
+	return (esc);
+}
+
+char	*escape_quotes(const char *line)
+{
+	size_t	i;
 	char	*s;
 
 	if (!line)
-		return (NULL);
+		return (nullptr);
 	i = 0;
 	s = ft_strdup(line);
 	while (i < ft_strlen(s))
 	{
-		if (ft_strchr(QUOTES, s[i]) && (i == 0 || (i > 0 && line[i - 1] != '\\')))
+		if (ft_strchr(QUOTES, s[i]))
 		{
-			len = ft_quoted_len(s + i,  s[i]);
-			if (len < 0)
-				return (free(s), NULL);
-			esc_line = ft_esc_line(s, i , i + len);
-			if (!esc_line)
-				return (free(s), NULL);
-			i += (len - 2);
-			free(s);
-			s = esc_line;
-			continue ;
+			s = escape_q(&i, &s);
+			if (!s)
+				return (nullptr);
 		}
-		i++;
+		else
+			i++;
 	}
 	return (s);
 }
 
-char	**ft_tokens(char *line, t_shenv *env, t_cli *cli)
+char	**tokenize(const char *line, t_cli *cli)
 {
 	char	**tokens;
 
 	if (!line)
-		return (NULL);
-	if (ft_check_prnts(line))
-		return (printf("prnts error\n"), NULL);
-	cli->n_tokens = ft_num_s_tokens(line);
-	tokens = ft_token_sep(ft_trim_spaces(line));
+		return (nullptr);
+	if (check_prnts(line))
+		return (nullptr);
+	cli->n_tokens = num_s_tokens(line);
+	tokens = token_sep(trim_spaces(line), 0, 0);
 	if (!tokens)
-		return (NULL);
-	tokens = ft_expand_tokens(tokens, &(cli->n_tokens), cli);
+		return (nullptr);
+	tokens = expand_tokens(tokens, &(cli->n_tokens), cli, 0);
 	if (!tokens)
-		return (ft_free_tokens(tokens, cli->n_tokens), NULL);
-	if (ft_check_errors(tokens, cli->n_tokens))
-		return (ft_free_tokens(tokens, cli->n_tokens), NULL);
+		return (nullptr);
+	if (check_errors(tokens, cli->n_tokens))
+		return (free_tokens(tokens, cli->n_tokens), nullptr);
 	return (tokens);
 }

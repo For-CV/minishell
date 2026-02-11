@@ -1,25 +1,27 @@
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
-/*   ft_strcmp.c                                        :+:      :+:    :+:   */
+/*   ft_pwd.c                                           :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: rafael-m <rafael-m@student.42.fr>          +#+  +:+       +#+        */
+/*   By: made-ped <made-ped@student.42madrid.com>   +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2025/08/19 20:52:26 by rafael-m          #+#    #+#             */
-/*   Updated: 2025/08/19 20:53:23 by rafael-m         ###   ########.fr       */
+/*   Created: 2025/10/31 13:04:31 by made-ped          #+#    #+#             */
+/*   Updated: 2025/10/31 13:05:46 by made-ped         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#include "libft.h"
+#include "../../minishell.h"
 
-int	ft_strcmp(char *s1, char *s2)
+int	ft_pwd(char **args, t_shenv **ft_env)
 {
-	int	i;
+	char	*cwd;
 
-	if (!s1 || !s2)
-		return (-1);
-	i = 0;
-	while (s1[i] && s2[i] && (s1[i] == s2[i]))
-		i++;
-	return ((unsigned char )s1[i] - (unsigned char )s2[i]);
+	(void)args;
+	(void)ft_env;
+	cwd = getcwd(NULL, 0);
+	if (!cwd)
+		return (perror("pwd"), 1);
+	printf("%s\n", cwd);
+	free(cwd);
+	return (0);
 }

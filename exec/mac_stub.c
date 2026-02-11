@@ -1,25 +1,18 @@
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
-/*   ft_strcmp.c                                        :+:      :+:    :+:   */
+/*   mac_stub.c                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: rafael-m <rafael-m@student.42.fr>          +#+  +:+       +#+        */
+/*   By: rafael-m <rafael-m@student.42madrid.com>   +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2025/08/19 20:52:26 by rafael-m          #+#    #+#             */
-/*   Updated: 2025/08/19 20:53:23 by rafael-m         ###   ########.fr       */
+/*   Created: 2025/12/16 23:52:17 by rafael-m          #+#    #+#             */
+/*   Updated: 2025/12/16 23:52:17 by rafael-m         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#include "libft.h"
+#ifdef __APPLE__
 
-int	ft_strcmp(char *s1, char *s2)
-{
-	int	i;
+int	g_rl_catch_signals = 0;
+#endif
 
-	if (!s1 || !s2)
-		return (-1);
-	i = 0;
-	while (s1[i] && s2[i] && (s1[i] == s2[i]))
-		i++;
-	return ((unsigned char )s1[i] - (unsigned char )s2[i]);
-}
+//solo para compatibilidad com mac, borrar el archivo después

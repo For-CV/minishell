@@ -29,19 +29,19 @@ BONUS_SRC = ft_lstadd_front_bonus.c ft_lstsize_bonus.c ft_lstclear_bonus.c\
 CC = cc
 OBJ = $(SRC:.c=.o)
 BONUS_OBJ = $(BONUS_SRC:.c=.o)
-CFLAGS += -Wall -Wextra -Werror
+CFLAGS += -Wall -Wextra -Werror -g3
 AR = ar rsc
 
 all: $(NAME)
 
 $(NAME): $(OBJ)
-	$(AR) $(NAME) $(OBJ)
+	@$(AR) $(NAME) $(OBJ)
 %.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@
+	@$(CC) $(CFLAGS) -c $< -o $@
 bonus: $(OBJ) $(BONUS_OBJ)
 	$(AR) $(NAME) $(OBJ) $(BONUS_OBJ)
 clean:
-	rm -f $(OBJ) $(BONUS_OBJ)
+	@rm -f $(OBJ) $(BONUS_OBJ)
 fclean: clean
-	rm -f $(NAME)
+	@rm -f $(NAME)
 re: fclean all
