@@ -73,13 +73,13 @@ pid_t	handle_prnts(t_cli *cli)
 		return (perror("minishell: fork"), pid);
 	}
 	if (pid == 0)
-		return (handle_aux(NULL, fds, 2), pid);
+		return (set_sig(CHILD), handle_aux(NULL, fds, 2), pid);
+	set_sig(IGNORE);
 	waitpid(pid, &status, 0);
 	handle_aux(NULL, fds, 1);
 	status = manage_status(cli, status);
 	cli = close_prnts_node(cli);
-	cli->status = status;
-	return (pid);
+	return (cli->status = status, pid);
 }
 
 t_cli	*next_node_pipe(t_cli *cli)
